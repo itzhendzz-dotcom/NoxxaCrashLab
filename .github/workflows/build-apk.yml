@@ -1,0 +1,438 @@
+name: Build Noxxa CrashLab APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - ".github/workflows/build-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Generate Noxxa CrashLab project
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf app settings.gradle build.gradle gradle.properties
+          mkdir -p app/src/main/java/com/noxxa/crashlab
+          mkdir -p app/src/main/res/drawable
+          mkdir -p app/src/main/res/mipmap-hdpi
+          mkdir -p app/src/main/res/values
+
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.name = "NoxxaCrashLab"
+          include(":app")
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
+
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=false
+          android.nonTransitiveRClass=true
+          EOF
+
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.noxxa.crashlab'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId 'com.noxxa.crashlab'
+                  minSdk 26
+                  targetSdk 35
+                  versionCode 1
+                  versionName '1.0.0'
+              }
+
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                  }
+              }
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          EOF
+
+          cat > app/proguard-rules.pro <<'EOF'
+          # Noxxa CrashLab V1
+          EOF
+
+          cat > app/src/main/res/values/colors.xml <<'EOF'
+          <resources>
+              <color name="bg">#0B0F12</color>
+              <color name="panel">#12181D</color>
+              <color name="panel2">#182127</color>
+              <color name="text">#EAF2F5</color>
+              <color name="muted">#91A0A8</color>
+              <color name="accent">#7FE7C4</color>
+              <color name="danger">#FF6B6B</color>
+              <color name="warning">#FFC857</color>
+          </resources>
+          EOF
+
+          cat > app/src/main/res/values/strings.xml <<'EOF'
+          <resources>
+              <string name="app_name">Noxxa CrashLab</string>
+          </resources>
+          EOF
+
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:statusBarColor">#0B0F12</item>
+                  <item name="android:navigationBarColor">#0B0F12</item>
+                  <item name="android:windowBackground">#0B0F12</item>
+              </style>
+          </resources>
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:allowBackup="true"
+                  android:label="Noxxa CrashLab"
+                  android:theme="@style/AppTheme"
+                  android:usesCleartextTraffic="false">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > app/src/main/java/com/noxxa/crashlab/CrashAnalyzer.java <<'EOF'
+          package com.noxxa.crashlab;
+
+          import java.util.*;
+          import java.util.regex.Matcher;
+          import java.util.regex.Pattern;
+
+          public final class CrashAnalyzer {
+              private CrashAnalyzer() {}
+
+              private static final Pattern SO_PATTERN =
+                      Pattern.compile("(?i)(?:^|[\\\\s/(:])((?:lib)?[A-Za-z0-9_.+\\-]+\\\\.so)(?=$|[\\\\s):,+])");
+
+              private static final Pattern SIGNAL_PATTERN =
+                      Pattern.compile("(?i)(SIGSEGV|SIGABRT|SIGBUS|SIGILL|SIGFPE)");
+
+              public static Result analyze(String input) {
+                  String log = input == null ? "" : input;
+                  String lower = log.toLowerCase(Locale.ROOT);
+
+                  Result r = new Result();
+                  r.modules = extractModules(log);
+
+                  if (containsAny(lower, "sigsegv", "segmentation fault", "fatal signal 11")) {
+                      r.status = "CRITICAL";
+                      r.crashType = "Native Segmentation Fault";
+                      r.signal = "SIGSEGV (11)";
+                      r.baseConfidence = 55;
+                      r.evidence.add("SIGSEGV / segmentation-fault pattern ditemukan");
+                      r.fixes.add("Disable plugin suspect lalu launch GTA lagi untuk A/B test.");
+                      r.fixes.add("Cek apakah plugin dibuat untuk build GTA/libGTASA yang sama.");
+                      r.fixes.add("Cek hook conflict, wrong offsets, atau use-after-free.");
+                  } else if (containsAny(lower, "sigabrt", "fatal signal 6", "abort message", "abort()")) {
+                      r.status = "CRITICAL";
+                      r.crashType = "Native Abort";
+                      r.signal = "SIGABRT (6)";
+                      r.baseConfidence = 50;
+                      r.evidence.add("SIGABRT / abort pattern ditemukan");
+                      r.fixes.add("Cari abort message tepat sebelum backtrace.");
+                      r.fixes.add("Disable plugin yang baru ditambah lalu test ulang.");
+                  } else if (containsAny(lower, "sigbus", "fatal signal 7")) {
+                      r.status = "CRITICAL";
+                      r.crashType = "Native Bus Error";
+                      r.signal = "SIGBUS (7)";
+                      r.baseConfidence = 50;
+                      r.evidence.add("SIGBUS pattern ditemukan");
+                      r.fixes.add("Cek alignment/memory access dari native plugin.");
+                  } else if (containsAny(lower, "sigill", "fatal signal 4")) {
+                      r.status = "CRITICAL";
+                      r.crashType = "Illegal Instruction";
+                      r.signal = "SIGILL (4)";
+                      r.baseConfidence = 50;
+                      r.evidence.add("SIGILL pattern ditemukan");
+                      r.fixes.add("Cek ABI/CPU architecture dan binary compatibility.");
+                  } else if (containsAny(lower, "dlopen failed", "cannot locate symbol", "undefined symbol", "unresolved symbol")) {
+                      r.status = "HIGH";
+                      r.crashType = "Native Library Load / Symbol Error";
+                      r.signal = "N/A";
+                      r.baseConfidence = 70;
+                      r.evidence.add("dlopen/symbol-resolution error ditemukan");
+                      r.fixes.add("Pastikan dependency .so tersedia dan ABI-nya cocok.");
+                      r.fixes.add("Cek symbol requirement terhadap libGTASA/AML version.");
+                  } else if (containsAny(lower, "out of memory", "outofmemory", "failed to allocate", "malloc failed", "allocation failed")) {
+                      r.status = "HIGH";
+                      r.crashType = "Memory Allocation Failure";
+                      r.signal = "N/A";
+                      r.baseConfidence = 70;
+                      r.evidence.add("Out-of-memory/allocation failure ditemukan");
+                      r.fixes.add("Kurangi texture/asset berat dan streaming memory.");
+                      r.fixes.add("Disable mod berat satu per satu untuk cari pemicu.");
+                  } else if (containsAny(lower, "double free", "heap corruption", "corrupted heap", "invalid free", "free(): invalid")) {
+                      r.status = "CRITICAL";
+                      r.crashType = "Heap Corruption";
+                      r.signal = "N/A";
+                      r.baseConfidence = 75;
+                      r.evidence.add("Heap corruption / invalid free pattern ditemukan");
+                      r.fixes.add("Prioritaskan native plugin/hook yang menyentuh memory.");
+                      r.fixes.add("Tes tanpa plugin suspect untuk memastikan regression.");
+                  } else if (containsAny(lower, "stack overflow")) {
+                      r.status = "HIGH";
+                      r.crashType = "Stack Overflow";
+                      r.signal = "N/A";
+                      r.baseConfidence = 70;
+                      r.evidence.add("Stack overflow ditemukan");
+                      r.fixes.add("Cari recursion / script loop tak terbatas.");
+                  } else if (containsAny(lower, "jni detected error", "jni error")) {
+                      r.status = "HIGH";
+                      r.crashType = "JNI Runtime Error";
+                      r.signal = "N/A";
+                      r.baseConfidence = 65;
+                      r.evidence.add("JNI error ditemukan");
+                      r.fixes.add("Cek plugin native yang berinteraksi dengan Java/JNI.");
+                  } else {
+                      r.status = "UNKNOWN";
+                      r.crashType = "Unknown / Not enough evidence";
+                      r.signal = detectSignal(log);
+                      r.baseConfidence = 20;
+                      r.evidence.add("Tidak ada signature crash kuat yang dikenali");
+                      r.fixes.add("Masukkan full AML crashlog/backtrace, bukan potongan pendek.");
+                  }
+
+                  applyGtaSpecificHints(lower, r);
+                  rankSuspects(log, r);
+                  finalizeConfidence(r);
+                  return r;
+              }
+
+              public static CompareResult compare(String a, String b) {
+                  Set<String> A = new LinkedHashSet<>(extractModules(a == null ? "" : a));
+                  Set<String> B = new LinkedHashSet<>(extractModules(b == null ? "" : b));
+                  LinkedHashSet<String> added = new LinkedHashSet<>(B);
+                  added.removeAll(A);
+                  LinkedHashSet<String> removed = new LinkedHashSet<>(A);
+                  removed.removeAll(B);
+
+                  Result rb = analyze(b);
+                  CompareResult c = new CompareResult();
+                  c.addedModules.addAll(added);
+                  c.removedModules.addAll(removed);
+                  c.logBResult = rb;
+
+                  if (!added.isEmpty() && !"UNKNOWN".equals(rb.status)) {
+                      c.summary = "Regression candidate detected";
+                      c.likelihood = rb.confidence >= 75 ? "HIGH" : "MEDIUM";
+                      for (String suspect : rb.suspects) {
+                          if (added.contains(suspect)) {
+                              c.primaryCandidate = suspect;
+                              c.likelihood = "HIGH";
+                              break;
+                          }
+                      }
+                      if (c.primaryCandidate == null) c.primaryCandidate = added.iterator().next();
+                  } else if (!added.isEmpty()) {
+                      c.summary = "New modules detected, but crash signature is weak";
+                      c.likelihood = "MEDIUM";
+                      c.primaryCandidate = added.iterator().next();
+                  } else {
+                      c.summary = "No new native module detected";
+                      c.likelihood = "LOW";
+                  }
+                  return c;
+              }
+
+              private static void applyGtaSpecificHints(String lower, Result r) {
+                  if (lower.contains("aml")) r.evidence.add("AML reference ditemukan");
+                  if (lower.contains("cleo")) r.evidence.add("CLEO reference ditemukan");
+                  if (lower.contains("jpatch")) r.evidence.add("JPatch reference ditemukan");
+                  if (lower.contains("fastman") || lower.contains("fla")) r.evidence.add("FLA reference ditemukan");
+                  if (lower.contains("arm64") || lower.contains("aarch64")) r.evidence.add("ARM64 context ditemukan");
+                  if (lower.contains("armeabi-v7a") || lower.contains("armv7")) r.evidence.add("ARM32 context ditemukan");
+                  if (lower.contains("libgtasa.so")) r.evidence.add("libGTASA.so muncul di log");
+                  if (lower.contains("cannot locate symbol") && lower.contains("libgtasa")) {
+                      r.evidence.add("Strong hint: plugin expects symbol/ABI berbeda dari libGTASA");
+                      r.baseConfidence += 10;
+                  }
+              }
+
+              private static void rankSuspects(String log, Result r) {
+                  if (r.modules.isEmpty()) return;
+
+                  String[] lines = log.split("\\\\R");
+                  Map<String, Integer> score = new HashMap<>();
+
+                  for (String m : r.modules) score.put(m, 0);
+
+                  for (int i = 0; i < lines.length; i++) {
+                      String line = lines[i];
+                      String ll = line.toLowerCase(Locale.ROOT);
+
+                      for (String m : r.modules) {
+                          if (!line.contains(m)) continue;
+                          int s = 5;
+                          if (i < Math.min(lines.length, 40)) s += 5;
+                          if (ll.contains("#00") || ll.contains("#0 ") || ll.contains("pc ") || ll.contains("backtrace")) s += 20;
+                          if (ll.contains("dlopen failed") || ll.contains("cannot locate symbol") || ll.contains("undefined symbol")) s += 40;
+                          if (ll.contains("crash") || ll.contains("fault") || ll.contains("abort")) s += 15;
+                          if (m.equalsIgnoreCase("libc.so") || m.equalsIgnoreCase("libart.so") ||
+                                  m.equalsIgnoreCase("libandroid_runtime.so") || m.equalsIgnoreCase("liblog.so")) s -= 20;
+                          if (m.equalsIgnoreCase("libGTASA.so")) s -= 5;
+                          score.put(m, score.get(m) + s);
+                      }
+                  }
+
+                  List<Map.Entry<String,Integer>> ranked = new ArrayList<>(score.entrySet());
+                  ranked.sort((x,y) -> Integer.compare(y.getValue(), x.getValue()));
+
+                  for (Map.Entry<String,Integer> e : ranked) {
+                      if (e.getValue() > 0) r.suspects.add(e.getKey());
+                      if (r.suspects.size() >= 5) break;
+                  }
+
+                  if (!r.suspects.isEmpty()) {
+                      r.topSuspect = r.suspects.get(0);
+                      int topScore = score.getOrDefault(r.topSuspect, 0);
+                      if (topScore >= 50) {
+                          r.baseConfidence += 20;
+                          r.evidence.add("Top suspect muncul langsung pada error/top backtrace");
+                      } else if (topScore >= 25) {
+                          r.baseConfidence += 10;
+                          r.evidence.add("Top suspect punya beberapa evidence di backtrace");
+                      }
+                  }
+              }
+
+              private static void finalizeConfidence(Result r) {
+                  r.confidence = Math.max(5, Math.min(99, r.baseConfidence));
+              }
+
+              private static String detectSignal(String log) {
+                  Matcher m = SIGNAL_PATTERN.matcher(log);
+                  return m.find() ? m.group(1).toUpperCase(Locale.ROOT) : "N/A";
+              }
+
+              private static List<String> extractModules(String log) {
+                  LinkedHashSet<String> out = new LinkedHashSet<>();
+                  Matcher m = SO_PATTERN.matcher(log);
+                  while (m.find()) out.add(m.group(1));
+                  return new ArrayList<>(out);
+              }
+
+              private static boolean containsAny(String text, String... needles) {
+                  for (String n : needles) if (text.contains(n)) return true;
+                  return false;
+              }
+
+              public static final class Result {
+                  public String status = "UNKNOWN";
+                  public String crashType = "Unknown";
+                  public String signal = "N/A";
+                  public String topSuspect = "Not identified";
+                  public int confidence = 0;
+                  private int baseConfidence = 0;
+                  public List<String> modules = new ArrayList<>();
+                  public List<String> suspects = new ArrayList<>();
+                  public List<String> evidence = new ArrayList<>();
+                  public List<String> fixes = new ArrayList<>();
+
+                  public String toDisplayText() {
+                      StringBuilder sb = new StringBuilder();
+                      sb.append("STATUS: ").append(status).append('\n');
+                      sb.append("Crash Type: ").append(crashType).append('\n');
+                      sb.append("Signal: ").append(signal).append('\n');
+                      sb.append("Top Suspect: ").append(topSuspect).append('\n');
+                      sb.append("Confidence: ").append(confidence).append("%\n\n");
+
+                      sb.append("EVIDENCE\n");
+                      for (String s : evidence) sb.append("• ").append(s).append('\n');
+
+                      sb.append("\nSUSPECT RANKING\n");
+                      if (suspects.isEmpty()) sb.append("• No strong module suspect\n");
+                      else for (int i = 0; i < suspects.size(); i++)
+                          sb.append(i + 1).append(". ").append(suspects.get(i)).append('\n');
+
+                      sb.append("\nMODULES FOUND\n");
+                      if (modules.isEmpty()) sb.append("• None\n");
+                      else for (String m : modules) sb.append("• ").append(m).append('\n');
+
+                      sb.append("\nSUGGESTED FIX\n");
+                      for (String s : fixes) sb.append("• ").append(s).append('\n');
+                      return sb.toString();
+                  }
+              }
+
+              public static final class CompareResult {
+                  public String summary = "";
+                  public String likelihood = "LOW";
+                  public String primaryCandidate;
+                  public List<String> addedModul
