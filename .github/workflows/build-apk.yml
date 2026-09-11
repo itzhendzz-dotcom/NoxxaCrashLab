@@ -16,9 +16,6 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
@@ -27,412 +24,41 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
-      - name: Install Android SDK packages
+      - name: Install Android 35
         shell: bash
-        run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Set up Gradle
+      - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
 
-      - name: Generate Noxxa CrashLab project
+      - name: Restore Noxxa CrashLab source
         shell: bash
         run: |
-          set -euo pipefail
+          printf '%s' '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' | base64 -d > project.tgz
+          tar -xzf project.tgz
+          test -f app/src/main/java/com/noxxa/crashlab/MainActivity.java
+          test -f app/src/main/java/com/noxxa/crashlab/CrashAnalyzer.java
 
-          rm -rf app settings.gradle build.gradle gradle.properties
-          mkdir -p app/src/main/java/com/noxxa/crashlab
-          mkdir -p app/src/main/res/drawable
-          mkdir -p app/src/main/res/mipmap-hdpi
-          mkdir -p app/src/main/res/values
+      - name: Build debug APK
+        shell: bash
+        run: gradle --no-daemon :app:assembleDebug
 
-          cat > settings.gradle <<'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
+      - name: Verify APK
+        shell: bash
+        run: |
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
+          sha256sum app/build/outputs/apk/debug/app-debug.apk
 
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-
-          rootProject.name = "NoxxaCrashLab"
-          include(":app")
-          EOF
-
-          cat > build.gradle <<'EOF'
-          plugins {
-              id 'com.android.application' version '8.7.3' apply false
-          }
-          EOF
-
-          cat > gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-          android.useAndroidX=false
-          android.nonTransitiveRClass=true
-          EOF
-
-          cat > app/build.gradle <<'EOF'
-          plugins {
-              id 'com.android.application'
-          }
-
-          android {
-              namespace 'com.noxxa.crashlab'
-              compileSdk 35
-
-              defaultConfig {
-                  applicationId 'com.noxxa.crashlab'
-                  minSdk 26
-                  targetSdk 35
-                  versionCode 1
-                  versionName '1.0.0'
-              }
-
-              buildTypes {
-                  release {
-                      minifyEnabled false
-                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-                  }
-              }
-
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
-          }
-          EOF
-
-          cat > app/proguard-rules.pro <<'EOF'
-          # Noxxa CrashLab V1
-          EOF
-
-          cat > app/src/main/res/values/colors.xml <<'EOF'
-          <resources>
-              <color name="bg">#0B0F12</color>
-              <color name="panel">#12181D</color>
-              <color name="panel2">#182127</color>
-              <color name="text">#EAF2F5</color>
-              <color name="muted">#91A0A8</color>
-              <color name="accent">#7FE7C4</color>
-              <color name="danger">#FF6B6B</color>
-              <color name="warning">#FFC857</color>
-          </resources>
-          EOF
-
-          cat > app/src/main/res/values/strings.xml <<'EOF'
-          <resources>
-              <string name="app_name">Noxxa CrashLab</string>
-          </resources>
-          EOF
-
-          cat > app/src/main/res/values/styles.xml <<'EOF'
-          <resources>
-              <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
-                  <item name="android:fontFamily">sans</item>
-                  <item name="android:windowLightStatusBar">false</item>
-                  <item name="android:statusBarColor">#0B0F12</item>
-                  <item name="android:navigationBarColor">#0B0F12</item>
-                  <item name="android:windowBackground">#0B0F12</item>
-              </style>
-          </resources>
-          EOF
-
-          cat > app/src/main/AndroidManifest.xml <<'EOF'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <application
-                  android:allowBackup="true"
-                  android:label="Noxxa CrashLab"
-                  android:theme="@style/AppTheme"
-                  android:usesCleartextTraffic="false">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
-
-          cat > app/src/main/java/com/noxxa/crashlab/CrashAnalyzer.java <<'EOF'
-          package com.noxxa.crashlab;
-
-          import java.util.*;
-          import java.util.regex.Matcher;
-          import java.util.regex.Pattern;
-
-          public final class CrashAnalyzer {
-              private CrashAnalyzer() {}
-
-              private static final Pattern SO_PATTERN =
-                      Pattern.compile("(?i)(?:^|[\\\\s/(:])((?:lib)?[A-Za-z0-9_.+\\-]+\\\\.so)(?=$|[\\\\s):,+])");
-
-              private static final Pattern SIGNAL_PATTERN =
-                      Pattern.compile("(?i)(SIGSEGV|SIGABRT|SIGBUS|SIGILL|SIGFPE)");
-
-              public static Result analyze(String input) {
-                  String log = input == null ? "" : input;
-                  String lower = log.toLowerCase(Locale.ROOT);
-
-                  Result r = new Result();
-                  r.modules = extractModules(log);
-
-                  if (containsAny(lower, "sigsegv", "segmentation fault", "fatal signal 11")) {
-                      r.status = "CRITICAL";
-                      r.crashType = "Native Segmentation Fault";
-                      r.signal = "SIGSEGV (11)";
-                      r.baseConfidence = 55;
-                      r.evidence.add("SIGSEGV / segmentation-fault pattern ditemukan");
-                      r.fixes.add("Disable plugin suspect lalu launch GTA lagi untuk A/B test.");
-                      r.fixes.add("Cek apakah plugin dibuat untuk build GTA/libGTASA yang sama.");
-                      r.fixes.add("Cek hook conflict, wrong offsets, atau use-after-free.");
-                  } else if (containsAny(lower, "sigabrt", "fatal signal 6", "abort message", "abort()")) {
-                      r.status = "CRITICAL";
-                      r.crashType = "Native Abort";
-                      r.signal = "SIGABRT (6)";
-                      r.baseConfidence = 50;
-                      r.evidence.add("SIGABRT / abort pattern ditemukan");
-                      r.fixes.add("Cari abort message tepat sebelum backtrace.");
-                      r.fixes.add("Disable plugin yang baru ditambah lalu test ulang.");
-                  } else if (containsAny(lower, "sigbus", "fatal signal 7")) {
-                      r.status = "CRITICAL";
-                      r.crashType = "Native Bus Error";
-                      r.signal = "SIGBUS (7)";
-                      r.baseConfidence = 50;
-                      r.evidence.add("SIGBUS pattern ditemukan");
-                      r.fixes.add("Cek alignment/memory access dari native plugin.");
-                  } else if (containsAny(lower, "sigill", "fatal signal 4")) {
-                      r.status = "CRITICAL";
-                      r.crashType = "Illegal Instruction";
-                      r.signal = "SIGILL (4)";
-                      r.baseConfidence = 50;
-                      r.evidence.add("SIGILL pattern ditemukan");
-                      r.fixes.add("Cek ABI/CPU architecture dan binary compatibility.");
-                  } else if (containsAny(lower, "dlopen failed", "cannot locate symbol", "undefined symbol", "unresolved symbol")) {
-                      r.status = "HIGH";
-                      r.crashType = "Native Library Load / Symbol Error";
-                      r.signal = "N/A";
-                      r.baseConfidence = 70;
-                      r.evidence.add("dlopen/symbol-resolution error ditemukan");
-                      r.fixes.add("Pastikan dependency .so tersedia dan ABI-nya cocok.");
-                      r.fixes.add("Cek symbol requirement terhadap libGTASA/AML version.");
-                  } else if (containsAny(lower, "out of memory", "outofmemory", "failed to allocate", "malloc failed", "allocation failed")) {
-                      r.status = "HIGH";
-                      r.crashType = "Memory Allocation Failure";
-                      r.signal = "N/A";
-                      r.baseConfidence = 70;
-                      r.evidence.add("Out-of-memory/allocation failure ditemukan");
-                      r.fixes.add("Kurangi texture/asset berat dan streaming memory.");
-                      r.fixes.add("Disable mod berat satu per satu untuk cari pemicu.");
-                  } else if (containsAny(lower, "double free", "heap corruption", "corrupted heap", "invalid free", "free(): invalid")) {
-                      r.status = "CRITICAL";
-                      r.crashType = "Heap Corruption";
-                      r.signal = "N/A";
-                      r.baseConfidence = 75;
-                      r.evidence.add("Heap corruption / invalid free pattern ditemukan");
-                      r.fixes.add("Prioritaskan native plugin/hook yang menyentuh memory.");
-                      r.fixes.add("Tes tanpa plugin suspect untuk memastikan regression.");
-                  } else if (containsAny(lower, "stack overflow")) {
-                      r.status = "HIGH";
-                      r.crashType = "Stack Overflow";
-                      r.signal = "N/A";
-                      r.baseConfidence = 70;
-                      r.evidence.add("Stack overflow ditemukan");
-                      r.fixes.add("Cari recursion / script loop tak terbatas.");
-                  } else if (containsAny(lower, "jni detected error", "jni error")) {
-                      r.status = "HIGH";
-                      r.crashType = "JNI Runtime Error";
-                      r.signal = "N/A";
-                      r.baseConfidence = 65;
-                      r.evidence.add("JNI error ditemukan");
-                      r.fixes.add("Cek plugin native yang berinteraksi dengan Java/JNI.");
-                  } else {
-                      r.status = "UNKNOWN";
-                      r.crashType = "Unknown / Not enough evidence";
-                      r.signal = detectSignal(log);
-                      r.baseConfidence = 20;
-                      r.evidence.add("Tidak ada signature crash kuat yang dikenali");
-                      r.fixes.add("Masukkan full AML crashlog/backtrace, bukan potongan pendek.");
-                  }
-
-                  applyGtaSpecificHints(lower, r);
-                  rankSuspects(log, r);
-                  finalizeConfidence(r);
-                  return r;
-              }
-
-              public static CompareResult compare(String a, String b) {
-                  Set<String> A = new LinkedHashSet<>(extractModules(a == null ? "" : a));
-                  Set<String> B = new LinkedHashSet<>(extractModules(b == null ? "" : b));
-                  LinkedHashSet<String> added = new LinkedHashSet<>(B);
-                  added.removeAll(A);
-                  LinkedHashSet<String> removed = new LinkedHashSet<>(A);
-                  removed.removeAll(B);
-
-                  Result rb = analyze(b);
-                  CompareResult c = new CompareResult();
-                  c.addedModules.addAll(added);
-                  c.removedModules.addAll(removed);
-                  c.logBResult = rb;
-
-                  if (!added.isEmpty() && !"UNKNOWN".equals(rb.status)) {
-                      c.summary = "Regression candidate detected";
-                      c.likelihood = rb.confidence >= 75 ? "HIGH" : "MEDIUM";
-                      for (String suspect : rb.suspects) {
-                          if (added.contains(suspect)) {
-                              c.primaryCandidate = suspect;
-                              c.likelihood = "HIGH";
-                              break;
-                          }
-                      }
-                      if (c.primaryCandidate == null) c.primaryCandidate = added.iterator().next();
-                  } else if (!added.isEmpty()) {
-                      c.summary = "New modules detected, but crash signature is weak";
-                      c.likelihood = "MEDIUM";
-                      c.primaryCandidate = added.iterator().next();
-                  } else {
-                      c.summary = "No new native module detected";
-                      c.likelihood = "LOW";
-                  }
-                  return c;
-              }
-
-              private static void applyGtaSpecificHints(String lower, Result r) {
-                  if (lower.contains("aml")) r.evidence.add("AML reference ditemukan");
-                  if (lower.contains("cleo")) r.evidence.add("CLEO reference ditemukan");
-                  if (lower.contains("jpatch")) r.evidence.add("JPatch reference ditemukan");
-                  if (lower.contains("fastman") || lower.contains("fla")) r.evidence.add("FLA reference ditemukan");
-                  if (lower.contains("arm64") || lower.contains("aarch64")) r.evidence.add("ARM64 context ditemukan");
-                  if (lower.contains("armeabi-v7a") || lower.contains("armv7")) r.evidence.add("ARM32 context ditemukan");
-                  if (lower.contains("libgtasa.so")) r.evidence.add("libGTASA.so muncul di log");
-                  if (lower.contains("cannot locate symbol") && lower.contains("libgtasa")) {
-                      r.evidence.add("Strong hint: plugin expects symbol/ABI berbeda dari libGTASA");
-                      r.baseConfidence += 10;
-                  }
-              }
-
-              private static void rankSuspects(String log, Result r) {
-                  if (r.modules.isEmpty()) return;
-
-                  String[] lines = log.split("\\\\R");
-                  Map<String, Integer> score = new HashMap<>();
-
-                  for (String m : r.modules) score.put(m, 0);
-
-                  for (int i = 0; i < lines.length; i++) {
-                      String line = lines[i];
-                      String ll = line.toLowerCase(Locale.ROOT);
-
-                      for (String m : r.modules) {
-                          if (!line.contains(m)) continue;
-                          int s = 5;
-                          if (i < Math.min(lines.length, 40)) s += 5;
-                          if (ll.contains("#00") || ll.contains("#0 ") || ll.contains("pc ") || ll.contains("backtrace")) s += 20;
-                          if (ll.contains("dlopen failed") || ll.contains("cannot locate symbol") || ll.contains("undefined symbol")) s += 40;
-                          if (ll.contains("crash") || ll.contains("fault") || ll.contains("abort")) s += 15;
-                          if (m.equalsIgnoreCase("libc.so") || m.equalsIgnoreCase("libart.so") ||
-                                  m.equalsIgnoreCase("libandroid_runtime.so") || m.equalsIgnoreCase("liblog.so")) s -= 20;
-                          if (m.equalsIgnoreCase("libGTASA.so")) s -= 5;
-                          score.put(m, score.get(m) + s);
-                      }
-                  }
-
-                  List<Map.Entry<String,Integer>> ranked = new ArrayList<>(score.entrySet());
-                  ranked.sort((x,y) -> Integer.compare(y.getValue(), x.getValue()));
-
-                  for (Map.Entry<String,Integer> e : ranked) {
-                      if (e.getValue() > 0) r.suspects.add(e.getKey());
-                      if (r.suspects.size() >= 5) break;
-                  }
-
-                  if (!r.suspects.isEmpty()) {
-                      r.topSuspect = r.suspects.get(0);
-                      int topScore = score.getOrDefault(r.topSuspect, 0);
-                      if (topScore >= 50) {
-                          r.baseConfidence += 20;
-                          r.evidence.add("Top suspect muncul langsung pada error/top backtrace");
-                      } else if (topScore >= 25) {
-                          r.baseConfidence += 10;
-                          r.evidence.add("Top suspect punya beberapa evidence di backtrace");
-                      }
-                  }
-              }
-
-              private static void finalizeConfidence(Result r) {
-                  r.confidence = Math.max(5, Math.min(99, r.baseConfidence));
-              }
-
-              private static String detectSignal(String log) {
-                  Matcher m = SIGNAL_PATTERN.matcher(log);
-                  return m.find() ? m.group(1).toUpperCase(Locale.ROOT) : "N/A";
-              }
-
-              private static List<String> extractModules(String log) {
-                  LinkedHashSet<String> out = new LinkedHashSet<>();
-                  Matcher m = SO_PATTERN.matcher(log);
-                  while (m.find()) out.add(m.group(1));
-                  return new ArrayList<>(out);
-              }
-
-              private static boolean containsAny(String text, String... needles) {
-                  for (String n : needles) if (text.contains(n)) return true;
-                  return false;
-              }
-
-              public static final class Result {
-                  public String status = "UNKNOWN";
-                  public String crashType = "Unknown";
-                  public String signal = "N/A";
-                  public String topSuspect = "Not identified";
-                  public int confidence = 0;
-                  private int baseConfidence = 0;
-                  public List<String> modules = new ArrayList<>();
-                  public List<String> suspects = new ArrayList<>();
-                  public List<String> evidence = new ArrayList<>();
-                  public List<String> fixes = new ArrayList<>();
-
-                  public String toDisplayText() {
-                      StringBuilder sb = new StringBuilder();
-                      sb.append("STATUS: ").append(status).append('\n');
-                      sb.append("Crash Type: ").append(crashType).append('\n');
-                      sb.append("Signal: ").append(signal).append('\n');
-                      sb.append("Top Suspect: ").append(topSuspect).append('\n');
-                      sb.append("Confidence: ").append(confidence).append("%\n\n");
-
-                      sb.append("EVIDENCE\n");
-                      for (String s : evidence) sb.append("• ").append(s).append('\n');
-
-                      sb.append("\nSUSPECT RANKING\n");
-                      if (suspects.isEmpty()) sb.append("• No strong module suspect\n");
-                      else for (int i = 0; i < suspects.size(); i++)
-                          sb.append(i + 1).append(". ").append(suspects.get(i)).append('\n');
-
-                      sb.append("\nMODULES FOUND\n");
-                      if (modules.isEmpty()) sb.append("• None\n");
-                      else for (String m : modules) sb.append("• ").append(m).append('\n');
-
-                      sb.append("\nSUGGESTED FIX\n");
-                      for (String s : fixes) sb.append("• ").append(s).append('\n');
-                      return sb.toString();
-                  }
-              }
-
-              public static final class CompareResult {
-                  public String summary = "";
-                  public String likelihood = "LOW";
-                  public String primaryCandidate;
-                  public List<String> addedModul
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NoxxaCrashLab-v1-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
