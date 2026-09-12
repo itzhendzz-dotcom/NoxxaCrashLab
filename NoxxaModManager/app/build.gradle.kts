@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.noxxa.modmanager"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.noxxa.modmanager"
